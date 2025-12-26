@@ -469,7 +469,15 @@ cp .env.example .env
 **.env dosyasını düzenleyin:**
 ```env
 # Veritabanı Bağlantısı
+
+# SQL Server Authentication (kullanıcı adı/şifre ile)
 DATABASE_URL="sqlserver://localhost:1433;database=OBS_DB;user=sa;password=YOUR_PASSWORD;trustServerCertificate=true"
+
+# Windows Authentication (önerilen - güvenli)
+# DATABASE_URL="sqlserver://YOUR_SERVER_NAME;database=OBS_DB;integratedSecurity=true;encrypt=true;trustServerCertificate=true"
+
+# Örnek: RAMAZANLEGION server için Windows Auth
+# DATABASE_URL="sqlserver://RAMAZANLEGION;database=UniversiteBilgiSistemi;integratedSecurity=true;encrypt=true;trustServerCertificate=true;schema=dbo"
 
 # JWT Ayarları
 JWT_SECRET="your-super-secret-jwt-key-here"
@@ -479,6 +487,19 @@ JWT_EXPIRES_IN="24h"
 PORT=5000
 NODE_ENV=development
 ```
+
+### 🔧 Veritabanı Bağlantı Seçenekleri
+
+| Bağlantı Tipi | Connection String Formatı | Açıklama |
+|---------------|---------------------------|----------|
+| **SQL Auth** | `sqlserver://localhost:1433;database=OBS_DB;user=sa;password=PASS;trustServerCertificate=true` | Kullanıcı adı/şifre ile |
+| **Windows Auth** | `sqlserver://SERVER_NAME;database=OBS_DB;integratedSecurity=true;encrypt=true;trustServerCertificate=true` | Windows kullanıcısı ile (önerilen) |
+| **SQL Express** | `sqlserver://localhost\\SQLEXPRESS;database=OBS_DB;integratedSecurity=true;trustServerCertificate=true` | SQL Server Express |
+
+**💡 Server Name Nasıl Bulunur?**
+1. SQL Server Management Studio (SSMS) açın
+2. "Connect to Server" penceresinde "Server name" alanına bakın
+3. Format: `BILGISAYAR_ADI` veya `BILGISAYAR_ADI\SQLEXPRESS`
 
 ### 📥 Adım 3: Veritabanı Kurulumu
 
