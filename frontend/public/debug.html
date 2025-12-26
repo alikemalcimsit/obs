@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        pre {
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 OBS Debug Tool</h1>
+    
+    <div class="section">
+        <h2>LocalStorage Kontrol</h2>
+        <button onclick="checkLocalStorage()">LocalStorage'ı Kontrol Et</button>
+        <button onclick="clearLocalStorage()">LocalStorage'ı Temizle</button>
+        <pre id="localStorageOutput"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Test Login</h2>
+        <button onclick="testLogin()">Test Login (mehmet.demir)</button>
+        <pre id="loginOutput"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Test Özlük API</h2>
+        <button onclick="testOzlukAPI()">Özlük Bilgilerini Getir</button>
+        <pre id="ozlukOutput"></pre>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:4000/api';
+
+        function checkLocalStorage() {
+            const output = document.getElementById('localStorageOutput');
+            const user = localStorage.getItem('user');
+            
+            if (user) {
+                try {
+                    const parsed = JSON.parse(user);
+                    output.innerHTML = '<strong class="success">✓ User bulundu:</strong>\n' + 
+                        JSON.stringify(parsed, null, 2) + 
+                        '\n\n<strong>ogrenci_id:</strong> ' + 
+                        (parsed.ogrenci?.ogrenci_id || '<span class="error">BULUNAMADI</span>');
+                } catch (e) {
+                    output.innerHTML = '<span class="error">✗ Parse hatası: ' + e.message + '</span>';
+                }
+            } else {
+                output.innerHTML = '<span class="error">✗ LocalStorage boş</span>';
+            }
+        }
+
+        function clearLocalStorage() {
+            localStorage.clear();
+            document.getElementById('localStorageOutput').innerHTML = 
+                '<span class="success">✓ LocalStorage temizlendi</span>';
+        }
+
+        async function testLogin() {
+            const output = document.getElementById('loginOutput');
+            output.innerHTML = 'Giriş yapılıyor...';
+            
+            try {
+                const response = await fetch(API_URL + '/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        kullanici_adi: 'mehmet.demir',
+                        sifre: 'ogrenci123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('user', JSON.stringify(data.kullanici));
+                    output.innerHTML = '<strong class="success">✓ Login başarılı:</strong>\n' + 
+                        JSON.stringify(data, null, 2);
+                } else {
+                    output.innerHTML = '<span class="error">✗ Login başarısız: ' + 
+                        JSON.stringify(data, null, 2) + '</span>';
+                }
+            } catch (error) {
+                output.innerHTML = '<span class="error">✗ Hata: ' + error.message + '</span>';
+            }
+        }
+
+        async function testOzlukAPI() {
+            const output = document.getElementById('ozlukOutput');
+            const user = localStorage.getItem('user');
+            
+            if (!user) {
+                output.innerHTML = '<span class="error">✗ Önce login olun</span>';
+                return;
+            }
+            
+            try {
+                const userData = JSON.parse(user);
+                const ogrenciId = userData.ogrenci?.ogrenci_id;
+                
+                if (!ogrenciId) {
+                    output.innerHTML = '<span class="error">✗ ogrenci_id bulunamadı</span>';
+                    return;
+                }
+                
+                output.innerHTML = 'API çağrılıyor... (ogrenci_id: ' + ogrenciId + ')';
+                
+                const response = await fetch(API_URL + '/ogrenci/' + ogrenciId + '/ozluk', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': userData.kullanici_id
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    output.innerHTML = '<strong class="success">✓ Özlük bilgileri alındı:</strong>\n' + 
+                        JSON.stringify(data, null, 2);
+                } else {
+                    output.innerHTML = '<span class="error">✗ API hatası (' + response.status + '):\n' + 
+                        JSON.stringify(data, null, 2) + '</span>';
+                }
+            } catch (error) {
+                output.innerHTML = '<span class="error">✗ Hata: ' + error.message + '</span>';
+            }
+        }
+
+        // Sayfa yüklendiğinde otomatik kontrol
+        window.onload = checkLocalStorage;
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// 1. KULLANICI YÖNETİMİ
+model Kullanicilar {
+  kullanici_id      Int                    @id @default(autoincrement())
+  kullanici_adi     String                 @unique @db.NVarChar(50)
+  sifre             String                 @db.NVarChar(255)
+  kullanici_tipi    String                 @db.NVarChar(20)
+  aktif             Boolean                @default(true)
+  olusturma_tarihi  DateTime               @default(now())
+  son_giris         DateTime?
+  
+  ogrenci           Ogrenciler?
+  ogretmen          Ogretmenler?
+  mesajlar_gonderilen Mesajlar[]           @relation("GonderenMesajlar")
+  mesajlar_alinan   Mesajlar[]             @relation("AliciMesajlar")
+  duyurular         Duyurular[]
+  sistem_loglari    SistemLoglari[]
+}
+
+// 2. BÖLÜM
+model Bolumler {
+  bolum_id     Int            @id @default(autoincrement())
+  bolum_kodu   String         @unique @db.NVarChar(10)
+  bolum_adi    String         @db.NVarChar(100)
+  fakulte      String?        @db.NVarChar(100)
+  toplam_akts  Int            @default(240)
+  aktif        Boolean        @default(true)
+  
+  ogrenciler   Ogrenciler[]
+  ogretmenler  Ogretmenler[]
+  dersler      Dersler[]
+  duyurular    Duyurular[]
+}
+
+// 3. ÖĞRENCİLER
+model Ogrenciler {
+  ogrenci_id          Int                        @id @default(autoincrement())
+  kullanici_id        Int?                       @unique
+  ogrenci_no          String                     @unique @db.NVarChar(20)
+  tc_kimlik           String                     @unique @db.NVarChar(11)
+  ad                  String                     @db.NVarChar(50)
+  soyad               String                     @db.NVarChar(50)
+  dogum_tarihi        DateTime?                  @db.Date
+  cinsiyet            String?                    @db.NVarChar(1)
+  telefon             String?                    @db.NVarChar(15)
+  eposta              String?                    @db.NVarChar(100)
+  adres               String?
+  bolum_id            Int?
+  giris_yili          Int?
+  aktif_donem         Int?
+  durum               String                     @default("aktif") @db.NVarChar(20)
+  
+  kullanici           Kullanicilar?              @relation(fields: [kullanici_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+  bolum               Bolumler?                  @relation(fields: [bolum_id], references: [bolum_id], onDelete: NoAction, onUpdate: NoAction)
+  akademik_durum      OgrenciAkademikDurum[]
+  ders_kayitlari      DersKayitlari[]
+  yoklama_detay       YoklamaDetay[]
+  kulup_uyelikleri    KulupUyelikleri[]
+}
+
+// 4. DÖNEMLER
+model Donemler {
+  donem_id          Int                    @id @default(autoincrement())
+  donem_adi         String                 @db.NVarChar(50)
+  akademik_yil      String                 @db.NVarChar(20)
+  baslangic_tarihi  DateTime?              @db.Date
+  bitis_tarihi      DateTime?              @db.Date
+  aktif             Boolean                @default(false)
+  
+  akademik_durum    OgrenciAkademikDurum[]
+  ders_acma         DersAcma[]
+  ders_kayitlari    DersKayitlari[]
+}
+
+// 5. ÖĞRENCİ AKADEMİK DURUM
+model OgrenciAkademikDurum {
+  kayit_id              Int         @id @default(autoincrement())
+  ogrenci_id            Int?
+  donem_id              Int?
+  agno                  Decimal?    @db.Decimal(3, 2)
+  toplam_akts           Int         @default(0)
+  donem_tekrari_sayisi  Int         @default(0)
+  ust_donem_ders_hakki  Boolean     @default(false)
+  
+  ogrenci               Ogrenciler? @relation(fields: [ogrenci_id], references: [ogrenci_id], onDelete: NoAction, onUpdate: NoAction)
+  donem                 Donemler?   @relation(fields: [donem_id], references: [donem_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 6. ÖĞRETMENLER
+model Ogretmenler {
+  ogretmen_id   Int            @id @default(autoincrement())
+  kullanici_id  Int?           @unique
+  sicil_no      String         @unique @db.NVarChar(20)
+  tc_kimlik     String         @unique @db.NVarChar(11)
+  ad            String         @db.NVarChar(50)
+  soyad         String         @db.NVarChar(50)
+  unvan         String?        @db.NVarChar(50)
+  bolum_id      Int?
+  telefon       String?        @db.NVarChar(15)
+  eposta        String?        @db.NVarChar(100)
+  ofis          String?        @db.NVarChar(50)
+  
+  kullanici     Kullanicilar?  @relation(fields: [kullanici_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+  bolum         Bolumler?      @relation(fields: [bolum_id], references: [bolum_id], onDelete: NoAction, onUpdate: NoAction)
+  ders_acma     DersAcma[]
+  kulupler      Kulupler[]
+}
+
+// 7. DERSLER
+model Dersler {
+  ders_id       Int                 @id @default(autoincrement())
+  ders_kodu     String              @unique @db.NVarChar(20)
+  ders_adi      String              @db.NVarChar(150)
+  teorik_saat   Int                 @default(0)
+  pratik_saat   Int                 @default(0)
+  kredi         Int
+  akts          Int
+  bolum_id      Int?
+  ders_tipi     String              @db.NVarChar(20)
+  donem         Int?
+  aktif         Boolean             @default(true)
+  
+  bolum         Bolumler?           @relation(fields: [bolum_id], references: [bolum_id], onDelete: NoAction, onUpdate: NoAction)
+  onkosullar    DersOnkosullari[]   @relation("DersOnkosul")
+  onkosul_olan  DersOnkosullari[]   @relation("OnkosuluOlan")
+  ders_acma     DersAcma[]
+}
+
+// 8. DERS ÖNKOŞULLARI
+model DersOnkosullari {
+  onkosul_id        Int      @id @default(autoincrement())
+  ders_id           Int?
+  onkosul_ders_id   Int?
+  
+  ders              Dersler? @relation("DersOnkosul", fields: [ders_id], references: [ders_id], onDelete: NoAction, onUpdate: NoAction)
+  onkosul_ders      Dersler? @relation("OnkosuluOlan", fields: [onkosul_ders_id], references: [ders_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 9. DERS AÇMA
+model DersAcma {
+  acilan_ders_id    Int              @id @default(autoincrement())
+  ders_id           Int?
+  donem_id          Int?
+  ogretmen_id       Int?
+  kontenjan         Int              @default(30)
+  kayitli_ogrenci   Int              @default(0)
+  sube              String           @default("A") @db.NVarChar(5)
+  aktif             Boolean          @default(true)
+  
+  ders              Dersler?         @relation(fields: [ders_id], references: [ders_id], onDelete: NoAction, onUpdate: NoAction)
+  donem             Donemler?        @relation(fields: [donem_id], references: [donem_id], onDelete: NoAction, onUpdate: NoAction)
+  ogretmen          Ogretmenler?     @relation(fields: [ogretmen_id], references: [ogretmen_id], onDelete: NoAction, onUpdate: NoAction)
+  ders_kayitlari    DersKayitlari[]
+  ders_programi     DersProgrami[]
+  yoklamalar        Yoklamalar[]
+  sinavlar          Sinavlar[]
+}
+
+// 10. DERS KAYITLARI
+model DersKayitlari {
+  kayit_id            Int         @id @default(autoincrement())
+  ogrenci_id          Int?
+  acilan_ders_id      Int?
+  donem_id            Int?
+  kayit_tarihi        DateTime    @default(now())
+  durum               String      @default("aktif") @db.NVarChar(20)
+  ders_tekrar_sayisi  Int         @default(0)
+  
+  ogrenci             Ogrenciler? @relation(fields: [ogrenci_id], references: [ogrenci_id], onDelete: NoAction, onUpdate: NoAction)
+  acilan_ders         DersAcma?   @relation(fields: [acilan_ders_id], references: [acilan_ders_id], onDelete: NoAction, onUpdate: NoAction)
+  donem               Donemler?   @relation(fields: [donem_id], references: [donem_id], onDelete: NoAction, onUpdate: NoAction)
+  notlar              Notlar[]
+}
+
+// 11. HARF NOTU TABLOSU
+model HarfNotuTablosu {
+  id         Int     @id @default(autoincrement())
+  harf_notu  String  @db.NVarChar(2)
+  min_puan   Decimal @db.Decimal(5, 2)
+  max_puan   Decimal @db.Decimal(5, 2)
+  katsayi    Decimal @db.Decimal(3, 2)
+  durum      String  @db.NVarChar(10)
+}
+
+// 12. NOTLAR
+model Notlar {
+  not_id              Int             @id @default(autoincrement())
+  kayit_id            Int?
+  vize_notu           Decimal?        @db.Decimal(5, 2)
+  final_notu          Decimal?        @db.Decimal(5, 2)
+  butunleme_notu      Decimal?        @db.Decimal(5, 2)
+  ortalama            Decimal?        @db.Decimal(5, 2)
+  t_skoru             Decimal?        @db.Decimal(5, 2)
+  harf_notu           String?         @db.NVarChar(2)
+  puan_karsiligi      Decimal?        @db.Decimal(3, 2)
+  aciklama            String?
+  ilan_tarihi         DateTime?
+  geri_cekme_tarihi   DateTime?
+  
+  kayit               DersKayitlari?  @relation(fields: [kayit_id], references: [kayit_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 13. DERS PROGRAMI
+model DersProgrami {
+  program_id        Int         @id @default(autoincrement())
+  acilan_ders_id    Int?
+  gun               String      @db.NVarChar(15)
+  baslangic_saati   DateTime    @db.Time
+  bitis_saati       DateTime    @db.Time
+  derslik           String?     @db.NVarChar(20)
+  
+  acilan_ders       DersAcma?   @relation(fields: [acilan_ders_id], references: [acilan_ders_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 14. YOKLAMALAR
+model Yoklamalar {
+  yoklama_id      Int              @id @default(autoincrement())
+  acilan_ders_id  Int?
+  tarih           DateTime         @db.Date
+  hafta           Int?
+  
+  acilan_ders     DersAcma?        @relation(fields: [acilan_ders_id], references: [acilan_ders_id], onDelete: NoAction, onUpdate: NoAction)
+  detaylar        YoklamaDetay[]
+}
+
+// 15. YOKLAMA DETAY
+model YoklamaDetay {
+  detay_id    Int         @id @default(autoincrement())
+  yoklama_id  Int?
+  ogrenci_id  Int?
+  durum       String      @default("var") @db.NVarChar(10)
+  aciklama    String?     @db.NVarChar(255)
+  
+  yoklama     Yoklamalar? @relation(fields: [yoklama_id], references: [yoklama_id], onDelete: NoAction, onUpdate: NoAction)
+  ogrenci     Ogrenciler? @relation(fields: [ogrenci_id], references: [ogrenci_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 16. SINAVLAR
+model Sinavlar {
+  sinav_id        Int         @id @default(autoincrement())
+  acilan_ders_id  Int?
+  sinav_tipi      String      @db.NVarChar(20)
+  tarih           DateTime    @db.Date
+  saat            DateTime    @db.Time
+  sure            Int?
+  derslik         String?     @db.NVarChar(20)
+  aciklama        String?
+  
+  acilan_ders     DersAcma?   @relation(fields: [acilan_ders_id], references: [acilan_ders_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 17. MESAJLAR
+model Mesajlar {
+  mesaj_id         Int            @id @default(autoincrement())
+  gonderen_id      Int?
+  alici_id         Int?
+  konu             String         @db.NVarChar(255)
+  icerik           String
+  okundu           Boolean        @default(false)
+  gonderim_tarihi  DateTime       @default(now())
+  
+  gonderen         Kullanicilar?  @relation("GonderenMesajlar", fields: [gonderen_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+  alici            Kullanicilar?  @relation("AliciMesajlar", fields: [alici_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 18. DUYURULAR
+model Duyurular {
+  duyuru_id          Int            @id @default(autoincrement())
+  baslik             String         @db.NVarChar(255)
+  icerik             String
+  olusturan_id       Int?
+  hedef_grup         String         @db.NVarChar(20)
+  bolum_id           Int?
+  olusturma_tarihi   DateTime       @default(now())
+  gecerlilik_tarihi  DateTime?      @db.Date
+  aktif              Boolean        @default(true)
+  
+  olusturan          Kullanicilar?  @relation(fields: [olusturan_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+  bolum              Bolumler?      @relation(fields: [bolum_id], references: [bolum_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 19. KULÜPLER
+model Kulupler {
+  kulup_id        Int                 @id @default(autoincrement())
+  kulup_adi       String              @db.NVarChar(100)
+  aciklama        String?
+  danisman_id     Int?
+  kurulus_tarihi  DateTime?           @db.Date
+  aktif           Boolean             @default(true)
+  
+  danisman        Ogretmenler?        @relation(fields: [danisman_id], references: [ogretmen_id], onDelete: NoAction, onUpdate: NoAction)
+  uyeler          KulupUyelikleri[]
+}
+
+// 20. KULÜP ÜYELİKLERİ
+model KulupUyelikleri {
+  uyelik_id       Int         @id @default(autoincrement())
+  kulup_id        Int?
+  ogrenci_id      Int?
+  katilim_tarihi  DateTime    @default(now()) @db.Date
+  rol             String      @default("uye") @db.NVarChar(20)
+  aktif           Boolean     @default(true)
+  
+  kulup           Kulupler?   @relation(fields: [kulup_id], references: [kulup_id], onDelete: NoAction, onUpdate: NoAction)
+  ogrenci         Ogrenciler? @relation(fields: [ogrenci_id], references: [ogrenci_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// 21. SİSTEM AYARLARI
+model SistemAyarlari {
+  ayar_id     Int     @id @default(autoincrement())
+  ayar_adi    String  @unique @db.NVarChar(50)
+  ayar_degeri String?
+  aciklama    String? @db.NVarChar(255)
+}
+
+// 22. SİSTEM LOGLARI
+model SistemLoglari {
+  log_id         Int            @id @default(autoincrement())
+  kullanici_id   Int?
+  islem_tipi     String?        @db.NVarChar(50)
+  islem_detayi   String?
+  ip_adresi      String?        @db.NVarChar(45)
+  islem_tarihi   DateTime       @default(now())
+  
+  kullanici      Kullanicilar?  @relation(fields: [kullanici_id], references: [kullanici_id], onDelete: NoAction, onUpdate: NoAction)
+}
